@@ -602,7 +602,7 @@ sort_submodels_by_size <- function(submodels) {
 ## @param chosen A list of currently chosen terms
 ## @param terms A list of all possible terms
 ## @param size Maximum allowed size
-select_possible_terms_size <- function(chosen, terms, size) {
+select_possible_terms_size <- function(chosen, terms, size, must_include = NULL) {
   if (size < 1) {
     stop("size must be at least 1")
   }
@@ -649,6 +649,10 @@ select_possible_terms_size <- function(chosen, terms, size) {
       paste(x, add_chosen, remove_chosen)
     )))
   })))
+  #If no variable chosen and there are terms that must be included, extract only variables from must_include
+  if(length(chosen)==0 & !is.null(must_include)){
+    full_valid_submodels <- list(union("1",must_include))
+  }
   return(full_valid_submodels)
 }
 

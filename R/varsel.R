@@ -71,6 +71,10 @@
 #'   there's no difference between including it explicitly or omitting it. The
 #'   default `search_terms` considers all the terms in the reference model's
 #'   formula.
+#'   @param must_include Only relevant for forward search. A custom character
+#'   vector of predictor terms that have to be included in each search path.
+#'   The intercept (`"1"`) is always included internally via `union()`, so
+#'   there's no difference between including it explicitly or omitting it.
 #' @param verbose A single logical value indicating whether to print out
 #'   additional information during the computations.
 #' @param seed Pseudorandom number generation (PRNG) seed by which the same
@@ -193,6 +197,7 @@ varsel.refmodel <- function(object, d_test = NULL, method = NULL,
                             lambda_min_ratio = 1e-5, nlambda = 150,
                             thresh = 1e-6, regul = 1e-4, penalty = NULL,
                             search_terms = NULL,
+                            must_include = NULL,
                             seed = sample.int(.Machine$integer.max, 1), ...) {
   # Set seed, but ensure the old RNG state is restored on exit:
   if (exists(".Random.seed", envir = .GlobalEnv)) {
@@ -206,13 +211,15 @@ varsel.refmodel <- function(object, d_test = NULL, method = NULL,
   ## fetch the default arguments or replace them by the user defined values
   args <- parse_args_varsel(
     refmodel = refmodel, method = method, refit_prj = refit_prj,
-    nterms_max = nterms_max, nclusters = nclusters, search_terms = search_terms
+    nterms_max = nterms_max, nclusters = nclusters,
+    search_terms = search_terms, must_include = must_include
   )
   method <- args$method
   refit_prj <- args$refit_prj
   nterms_max <- args$nterms_max
   nclusters <- args$nclusters
   search_terms <- args$search_terms
+  must_include <- args$must_include
 
   if (is.null(d_test)) {
     d_test <- list(type = "train", data = NULL, offset = refmodel$offset,
@@ -231,13 +238,13 @@ varsel.refmodel <- function(object, d_test = NULL, method = NULL,
   search_path <- select(
     method = method, p_sel = p_sel, refmodel = refmodel,
     nterms_max = nterms_max, penalty = penalty, verbose = verbose, opt = opt,
-    search_terms = search_terms, ...
+    search_terms = search_terms, must_include = must_include, ...
   )
 
   ## statistics for the selected submodels
   submodels <- .get_submodels(
     search_path = search_path,
-    nterms = c(0, seq_along(search_path$solution_terms)),
+    nterms = as.integer(names(search_path$submodls))-1,
     p_ref = p_pred, refmodel = refmodel, regul = regul, refit_prj = refit_prj,
     ...
   )
@@ -303,7 +310,8 @@ varsel.refmodel <- function(object, d_test = NULL, method = NULL,
     clust_used_search = p_sel$clust_used,
     clust_used_eval = p_pred$clust_used,
     nprjdraws_search = NCOL(p_sel$mu),
-    nprjdraws_eval = NCOL(p_pred$mu)
+    nprjdraws_eval = NCOL(p_pred$mu),
+    must_include=must_include
   )
   ## suggest model size
   class(vs) <- "vsel"
@@ -315,7 +323,7 @@ varsel.refmodel <- function(object, d_test = NULL, method = NULL,
 }
 
 select <- function(method, p_sel, refmodel, nterms_max, penalty, verbose, opt,
-                   search_terms = NULL, ...) {
+                   search_terms = NULL, must_include = NULL, ...) {
   ##
   ## Auxiliary function, performs variable selection with the given method,
   ## and returns the search_path, i.e., a list with the followint entries (the
@@ -335,7 +343,7 @@ select <- function(method, p_sel, refmodel, nterms_max, penalty, verbose, opt,
     return(search_path)
   } else if (method == "forward") {
     search_path <- search_forward(p_sel, refmodel, nterms_max, verbose, opt,
-                                  search_terms = search_terms, ...)
+                                  search_terms = search_terms, must_include = must_include, ...)
     search_path$p_sel <- p_sel
     return(search_path)
   }
@@ -347,8 +355,9 @@ select <- function(method, p_sel, refmodel, nterms_max, penalty, verbose, opt,
 ## fills them in with the default values. The purpose of this function is to
 ## avoid repeating the same code both in varsel and cv_varsel.
 parse_args_varsel <- function(refmodel, method, refit_prj, nterms_max,
-                              nclusters, search_terms) {
+                              nclusters, search_terms, must_include) {
   search_terms_was_null <- is.null(search_terms)
+  must_include_was_null <- is.null(must_include)
   if (search_terms_was_null) {
     search_terms <- split_formula(refmodel$formula,
                                   data = refmodel$fetch_data())
@@ -372,6 +381,10 @@ parse_args_varsel <- function(refmodel, method, refit_prj, nterms_max,
       }
       if (!search_terms_was_null) {
         warning("Argument `search_terms` only takes effect if ",
+                "`method = \"forward\"`.")
+      }
+      if (!must_include_was_null) {
+        warning("Argument `must_include` only takes effect if ",
                 "`method = \"forward\"`.")
       }
     }
@@ -401,5 +414,5 @@ parse_args_varsel <- function(refmodel, method, refit_prj, nterms_max,
   }
   nterms_max <- min(max_nv_possible, nterms_max + refmodel$intercept)
 
-  return(nlist(method, refit_prj, nterms_max, nclusters, search_terms))
+  return(nlist(method, refit_prj, nterms_max, nclusters, search_terms,must_include))
 }

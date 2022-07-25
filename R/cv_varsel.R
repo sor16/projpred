@@ -134,6 +134,7 @@ cv_varsel.refmodel <- function(
     validate_search = TRUE,
     seed = sample.int(.Machine$integer.max, 1),
     search_terms = NULL,
+    must_include = NULL,
     ...
 ) {
   # Set seed, but ensure the old RNG state is restored on exit:
@@ -149,13 +150,16 @@ cv_varsel.refmodel <- function(
   ## resolve the arguments similar to varsel
   args <- parse_args_varsel(
     refmodel = refmodel, method = method, refit_prj = refit_prj,
-    nterms_max = nterms_max, nclusters = nclusters, search_terms = search_terms
+    nterms_max = nterms_max, nclusters = nclusters,
+    search_terms = search_terms, must_include = must_include
   )
+
   method <- args$method
   refit_prj <- args$refit_prj
   nterms_max <- args$nterms_max
   nclusters <- args$nclusters
   search_terms <- args$search_terms
+  must_include <- args$must_include
 
   ## arguments specific to this function
   args <- parse_args_cv_varsel(
@@ -173,14 +177,16 @@ cv_varsel.refmodel <- function(
       ndraws = ndraws, nclusters = nclusters, ndraws_pred = ndraws_pred,
       nclusters_pred = nclusters_pred, refit_prj = refit_prj, penalty = penalty,
       verbose = verbose, opt = opt, nloo = nloo,
-      validate_search = validate_search, search_terms = search_terms, ...
+      validate_search = validate_search, search_terms = search_terms,
+      must_include = must_include, ...
     )
   } else if (cv_method == "kfold") {
     sel_cv <- kfold_varsel(
       refmodel = refmodel, method = method, nterms_max = nterms_max,
       ndraws = ndraws, nclusters = nclusters, ndraws_pred = ndraws_pred,
       nclusters_pred = nclusters_pred, refit_prj = refit_prj, penalty = penalty,
-      verbose = verbose, opt = opt, K = K, search_terms = search_terms, ...
+      verbose = verbose, opt = opt, K = K,
+      search_terms = search_terms_usr, must_include = must_include,...
     )
   } else {
     stop(sprintf("Unknown `cv_method`: %s.", method))
@@ -197,7 +203,8 @@ cv_varsel.refmodel <- function(
                   refit_prj = refit_prj, nterms_max = nterms_max - 1,
                   penalty = penalty, verbose = verbose,
                   lambda_min_ratio = lambda_min_ratio, nlambda = nlambda,
-                  regul = regul, search_terms = search_terms_usr, seed = seed,
+                  regul = regul, search_terms = search_terms,
+                  must_include = must_include, seed = seed,
                   ...)
   } else if (cv_method == "LOO") {
     sel <- sel_cv$sel
@@ -231,7 +238,7 @@ cv_varsel.refmodel <- function(
          "the package maintainer.")
   }
   pct_solution_terms_cv <- cbind(
-    size = seq_len(nrow(solution_terms_cv_chr)),
+    size = seq_len(nrow(solution_terms_cv_chr))+length(must_include),
     do.call(cbind, lapply(setNames(nm = sel_solution_terms), function(var_nm) {
       rowMeans(solution_terms_cv_chr == var_nm, na.rm = TRUE)
     }))
@@ -253,7 +260,8 @@ cv_varsel.refmodel <- function(
               clust_used_search = sel$clust_used_search,
               clust_used_eval = sel$clust_used_eval,
               nprjdraws_search = sel$nprjdraws_search,
-              nprjdraws_eval = sel$nprjdraws_eval)
+              nprjdraws_eval = sel$nprjdraws_eval,
+              must_include=must_include)
   class(vs) <- "vsel"
   vs$suggested_size <- suggest_size(vs, warnings = FALSE)
   summary <- summary(vs)
@@ -307,7 +315,7 @@ parse_args_cv_varsel <- function(refmodel, cv_method, K) {
 loo_varsel <- function(refmodel, method, nterms_max, ndraws,
                        nclusters, ndraws_pred, nclusters_pred, refit_prj,
                        penalty, verbose, opt, nloo = NULL,
-                       validate_search = TRUE, search_terms = NULL, ...) {
+                       validate_search = TRUE, search_terms = NULL, must_include = NULL,...) {
   ##
   ## Perform the validation of the searching process using LOO. validate_search
   ## indicates whether the selection is performed separately for each fold (for
@@ -359,11 +367,16 @@ loo_varsel <- function(refmodel, method, nterms_max, ndraws,
   ## validset <- .loo_subsample(n, nloo, pareto_k)
   validset <- .loo_subsample_pps(nloo, loo_ref)
   inds <- validset$inds
+  if(method=='forward'){
+    nterms_min <- if(is.null(must_include)) 1 else length(union(must_include,"1"))
+  }else{
+    nterms_min <- 1
+  }
 
   ## initialize objects where to store the results
-  solution_terms_mat <- matrix(nrow = n, ncol = nterms_max - 1)
-  loo_sub <- replicate(nterms_max, rep(NA, n), simplify = FALSE)
-  mu_sub <- replicate(nterms_max, rep(NA, n), simplify = FALSE)
+  solution_terms_mat <- matrix(nrow = n, ncol = nterms_max - nterms_min)
+  loo_sub <- replicate(nterms_max - nterms_min + 1, rep(NA, n), simplify = FALSE)
+  mu_sub <- replicate(nterms_max - nterms_min + 1, rep(NA, n), simplify = FALSE)
 
   if (verbose) {
     if (validate_search) {
@@ -382,14 +395,14 @@ loo_varsel <- function(refmodel, method, nterms_max, ndraws,
     search_path <- select(
       method = method, p_sel = p_sel, refmodel = refmodel,
       nterms_max = nterms_max, penalty = penalty, verbose = FALSE, opt = opt,
-      search_terms = search_terms, ...
+      search_terms = search_terms, must_include = must_include, ...
     )
 
     ## project onto the selected models and compute the prediction accuracy for
     ## the full data
     submodels <- .get_submodels(
       search_path = search_path,
-      nterms = c(0, seq_along(search_path$solution_terms)),
+      nterms = as.integer(names(search_path$submodls))-1,
       p_ref = p_pred, refmodel = refmodel, regul = opt$regul,
       refit_prj = refit_prj, ...
     )
@@ -438,6 +451,7 @@ loo_varsel <- function(refmodel, method, nterms_max, ndraws,
       }
     }
 
+
     candidate_terms <- split_formula(refmodel$formula,
                                      data = refmodel$fetch_data(),
                                      add_main_effects = FALSE)
@@ -448,6 +462,8 @@ loo_varsel <- function(refmodel, method, nterms_max, ndraws,
     for (i in seq_len(n)) {
       solution_terms_mat[i, seq_along(solution)] <- solution
     }
+
+
     sel <- nlist(search_path, kl = sapply(submodels, function(x) x$kl),
                  solution_terms = search_path$solution_terms,
                  clust_used_search = p_sel$clust_used,
@@ -478,14 +494,14 @@ loo_varsel <- function(refmodel, method, nterms_max, ndraws,
       search_path <- select(
         method = method, p_sel = p_sel, refmodel = refmodel,
         nterms_max = nterms_max, penalty = penalty, verbose = FALSE, opt = opt,
-        search_terms = search_terms, ...
+        search_terms = search_terms, must_include = must_include, ...
       )
 
       ## project onto the selected models and compute the prediction accuracy
       ## for the left-out point
       submodels <- .get_submodels(
         search_path = search_path,
-        nterms = c(0, seq_along(search_path$solution_terms)),
+        nterms = as.integer(names(search_path$submodls))-1,
         p_ref = p_pred, refmodel = refmodel, regul = opt$regul,
         refit_prj = refit_prj, ...
       )
@@ -518,7 +534,7 @@ loo_varsel <- function(refmodel, method, nterms_max, ndraws,
   }
 
   ## put all the results together in the form required by cv_varsel
-  summ_sub <- lapply(seq_len(nterms_max), function(k) {
+  summ_sub <- lapply(seq_len(length(search_path$solution_terms)+1), function(k) {
     list(lppd = loo_sub[[k]], mu = mu_sub[[k]], w = validset$w)
   })
   summ_ref <- list(lppd = loo_ref, mu = mu_ref)
@@ -537,7 +553,7 @@ loo_varsel <- function(refmodel, method, nterms_max, ndraws,
 kfold_varsel <- function(refmodel, method, nterms_max, ndraws,
                          nclusters, ndraws_pred, nclusters_pred,
                          refit_prj, penalty, verbose, opt, K,
-                         search_terms = NULL, ...) {
+                         search_terms = NULL, must_include = NULL, ...) {
   # Fetch the K reference model fits (or fit them now if not already done) and
   # create objects of class `refmodel` from them (and also store the `omitted`
   # indices):
@@ -567,7 +583,7 @@ kfold_varsel <- function(refmodel, method, nterms_max, ndraws,
     out <- select(
       method = method, p_sel = p_sel, refmodel = fold$refmodel,
       nterms_max = nterms_max, penalty = penalty, verbose = FALSE, opt = opt,
-      search_terms = search_terms, ...
+      search_terms = search_terms, must_include = must_include, ...
     )
     if (verbose) {
       utils::setTxtProgressBar(pb, fold_index)
@@ -592,7 +608,7 @@ kfold_varsel <- function(refmodel, method, nterms_max, ndraws,
     p_pred <- .get_refdist(fold$refmodel, ndraws_pred, nclusters_pred)
     submodels <- .get_submodels(
       search_path = search_path,
-      nterms = c(0, seq_along(search_path$solution_terms)),
+      nterms = as.integer(names(search_path$submodls))-1,
       p_ref = p_pred, refmodel = fold$refmodel, regul = opt$regul,
       refit_prj = refit_prj, ...
     )

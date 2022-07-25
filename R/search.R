@@ -1,5 +1,5 @@
 search_forward <- function(p_ref, refmodel, nterms_max, verbose = TRUE, opt,
-                           search_terms = NULL, ...) {
+                           search_terms = NULL, must_include = NULL, ...) {
   iq <- ceiling(quantile(seq_len(nterms_max), 1:10 / 10))
   if (is.null(search_terms)) {
     allterms <- split_formula(refmodel$formula, data = refmodel$fetch_data())
@@ -7,13 +7,14 @@ search_forward <- function(p_ref, refmodel, nterms_max, verbose = TRUE, opt,
     allterms <- search_terms
   }
 
-  chosen <- character()
+  chosen <- character(0)
   total_terms <- count_terms_chosen(allterms)
   stop_search <- min(total_terms, nterms_max)
+  start_search <- if(is.null(must_include)) 1 else length(union(must_include,'1'))
   submodels <- c()
 
-  for (size in seq_len(stop_search)) {
-    cands <- select_possible_terms_size(chosen, allterms, size = size)
+  for (size in seq(start_search,stop_search)) {
+    cands <- select_possible_terms_size(chosen, allterms, size = size, must_include = must_include)
     if (is.null(cands))
       next
     full_cands <- lapply(cands, function(cand) c(chosen, cand))
@@ -22,10 +23,10 @@ search_forward <- function(p_ref, refmodel, nterms_max, verbose = TRUE, opt,
 
     ## select best candidate
     imin <- which.min(sapply(subL, "[[", "kl"))
-    chosen <- c(chosen, cands[imin])
+    chosen <- c(chosen, cands[[imin]])
 
     ## append submodels
-    submodels <- c(submodels, list(subL[[imin]]$submodl))
+    submodels[[as.character(size)]] <- subL[[imin]]$submodl
 
     if (verbose && count_terms_chosen(chosen) %in% iq) {
       print(paste0(names(iq)[max(which(count_terms_chosen(chosen) == iq))],
@@ -39,7 +40,7 @@ search_forward <- function(p_ref, refmodel, nterms_max, verbose = TRUE, opt,
   # models. Thus, use `chosen` here because it matches `submodels` (this
   # matching is necessary because later in .get_submodels()'s `!refit_prj` case,
   # `submodls` is indexed with integers which are based on `solution_terms`):
-  return(list(solution_terms = setdiff(chosen, "1"),
+  return(list(solution_terms = setdiff(chosen, union("1",must_include)),
               submodls = submodels))
 }
 
@@ -191,6 +192,8 @@ search_L1 <- function(p_ref, refmodel, nterms_max, penalty, opt) {
     class(sub) <- "subfit"
     return(list(sub))
   })
+  #add character names reffering to model size (plus 1) prevent using indexing
+  names(submodls) <- as.character(seq_len(length(submodls)))
   return(list(solution_terms = solution_terms[seq_len(nterms_max)],
               submodls = submodls[seq_len(nterms_max + 1)]))
 }

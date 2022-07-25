@@ -31,6 +31,7 @@ cv_varsel(object, ...)
   validate_search = TRUE,
   seed = sample.int(.Machine$integer.max, 1),
   search_terms = NULL,
+  must_include = NULL,
   ...
 )
 }
@@ -151,7 +152,11 @@ vector of predictor term blocks to consider for the search. Section
 The intercept (\code{"1"}) is always included internally via \code{union()}, so
 there's no difference between including it explicitly or omitting it. The
 default \code{search_terms} considers all the terms in the reference model's
-formula.}
+formula.
+@param must_include Only relevant for forward search. A custom character
+vector of predictor terms that have to be included in each search path.
+The intercept (\code{"1"}) is always included internally via \code{union()}, so
+there's no difference between including it explicitly or omitting it.}
 }
 \value{
 An object of class \code{vsel}. The elements of this object are not meant

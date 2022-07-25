@@ -49,7 +49,7 @@ project_submodel <- function(solution_terms, p_ref, refmodel, regul = 1e-4,
       wsample <- validparams$wsample
       return(.init_submodel(
         # Re-use the submodel fits from the search:
-        submodl = search_path$submodls[[nterms + 1]],
+        submodl = search_path$submodls[[as.character(nterms + 1)]],
         p_ref = search_path$p_sel,
         refmodel = refmodel,
         solution_terms = utils::head(search_path$solution_terms, nterms),
