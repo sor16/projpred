@@ -15,7 +15,7 @@ search_forward <- function(p_ref, refmodel, nterms_max, verbose = TRUE, opt,
 
   for (size in seq(start_search,stop_search)) {
     cands <- select_possible_terms_size(chosen, allterms, size = size, must_include = must_include)
-    if (is.null(cands))
+    if (length(cands)==0)
       next
     full_cands <- lapply(cands, function(cand) c(chosen, cand))
     subL <- lapply(full_cands, project_submodel,
@@ -33,14 +33,21 @@ search_forward <- function(p_ref, refmodel, nterms_max, verbose = TRUE, opt,
                    " of terms selected."))
     }
   }
-
+  if(!is.null(must_include)){
+    fixed_terms <- must_include
+  }else if(any(grepl('\\+',search_terms))){
+    fixed_terms <- Reduce('intersect',lapply(possible_mods,function(x) unlist(strsplit(x,split='\\+'))))
+  }else{
+    fixed_terms <- NULL
+  }
   # For `solution_terms`, `reduce_models(chosen)` used to be used instead of
   # `chosen`. However, `reduce_models(chosen)` and `chosen` should be identical
   # at this place because select_possible_terms_size() already avoids redundant
   # models. Thus, use `chosen` here because it matches `submodels` (this
   # matching is necessary because later in .get_submodels()'s `!refit_prj` case,
   # `submodls` is indexed with integers which are based on `solution_terms`):
-  return(list(solution_terms = setdiff(chosen, union("1",must_include)),
+  return(list(solution_terms = setdiff(chosen, union("1",fixed_terms)),
+              fixed_terms = setdiff(fixed_terms,'1'),
               submodls = submodels))
 }
 

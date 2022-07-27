@@ -649,6 +649,9 @@ select_possible_terms_size <- function(chosen, terms, size, must_include = NULL)
       paste(x, add_chosen, remove_chosen)
     )))
   })))
+  full_valid_submodels <- lapply(full_valid_submodels,function(x){
+    unlist(strsplit(x,split = ' \\+ '))
+  })
   #If no variable chosen and there are terms that must be included, extract only variables from must_include
   if(length(chosen)==0 & !is.null(must_include)){
     full_valid_submodels <- list(union("1",must_include))

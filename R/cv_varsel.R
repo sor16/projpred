@@ -186,7 +186,7 @@ cv_varsel.refmodel <- function(
       ndraws = ndraws, nclusters = nclusters, ndraws_pred = ndraws_pred,
       nclusters_pred = nclusters_pred, refit_prj = refit_prj, penalty = penalty,
       verbose = verbose, opt = opt, K = K,
-      search_terms = search_terms_usr, must_include = must_include,...
+      search_terms = search_terms, must_include = must_include,...
     )
   } else {
     stop(sprintf("Unknown `cv_method`: %s.", method))
@@ -368,15 +368,21 @@ loo_varsel <- function(refmodel, method, nterms_max, ndraws,
   validset <- .loo_subsample_pps(nloo, loo_ref)
   inds <- validset$inds
   if(method=='forward'){
-    nterms_min <- if(is.null(must_include)) 1 else length(union(must_include,"1"))
+    if(!is.null(must_include)){
+      num_solution_terms <- nterms_max - length(union(must_include,"1"))
+    }else if(any(grepl('\\+',search_terms))){
+      num_solution_terms <- length(unique(sapply(search_terms,function(x) length(unlist(strsplit(x,split='\\+')))))) - 1
+    }else{
+      num_solution_terms <- nterms_max-1
+    }
   }else{
-    nterms_min <- 1
+    num_solution_terms <- nterms_max-1
   }
 
   ## initialize objects where to store the results
-  solution_terms_mat <- matrix(nrow = n, ncol = nterms_max - nterms_min)
-  loo_sub <- replicate(nterms_max - nterms_min + 1, rep(NA, n), simplify = FALSE)
-  mu_sub <- replicate(nterms_max - nterms_min + 1, rep(NA, n), simplify = FALSE)
+  solution_terms_mat <- matrix(nrow = n, ncol = num_solution_terms)
+  loo_sub <- replicate(num_solution_terms + 1, rep(NA, n), simplify = FALSE)
+  mu_sub <- replicate(num_solution_terms + 1, rep(NA, n), simplify = FALSE)
 
   if (verbose) {
     if (validate_search) {
