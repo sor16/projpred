@@ -60,8 +60,10 @@ project_submodel <- function(solution_terms, p_ref, refmodel, regul = 1e-4,
   } else {
     # In this case, project again.
     fetch_submodel <- function(nterms, ...) {
+      #add fixed terms to solution terms to project onto correct submodel.
+      all_solution_terms <- c(search_path$fixed_terms,search_path$solution_terms)
       return(project_submodel(
-        solution_terms = utils::head(search_path$solution_terms, nterms),
+        solution_terms = utils::head(all_solution_terms, nterms),
         p_ref = p_ref, refmodel = refmodel, regul = regul, ...
       ))
     }

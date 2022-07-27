@@ -787,7 +787,7 @@ suggest_size.vsel <- function(
                         deltas = TRUE,
                         ...)$selection
   util_null <- sgn * unlist(unname(subset(
-    stats, stats$size == 0,
+    stats, is.na(stats$solution_terms),
     paste0(stat, suffix)
   )))
   util_cutoff <- pct * util_null

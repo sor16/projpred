@@ -52,7 +52,7 @@
   summ_ref <- varsel$summaries$ref
   summ_sub <- varsel$summaries$sub
   ref_size <- length(split_formula(varsel$refmodel$formula,data = varsel$refmodel$fetch_data(),add_main_effects = FALSE))
-  submodel_sizes <- ref_size - rev(seq_len(length(varsel$solution_terms)+1))
+  submodel_sizes <- as.integer(names(varsel$search_path$submodls))
 
   if (varsel$refmodel$family$family == "binomial" &&
       !all(varsel$d_test$weights == 1)) {
