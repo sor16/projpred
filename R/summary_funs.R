@@ -110,7 +110,7 @@
         lq <- qnorm(alpha / 2, mean = val, sd = val.se)
         uq <- qnorm(1 - alpha / 2, mean = val, sd = val.se)
         row <- data.frame(
-          data = varsel$d_test$type, size = submodel_sizes[k], delta = delta,
+          data = varsel$d_test$type, size = submodel_sizes[k] - 1, delta = delta,
           statistic = stat, value = val, lq = lq, uq = uq, se = val.se,
           diff = res_diff$value, diff.se = res_diff$se
         )
@@ -122,7 +122,7 @@
                          mu.bs = summ_ref$mu, lppd.bs = summ_ref$lppd,
                          weights = summ$w, alpha = alpha, ...)
         row <- data.frame(
-          data = varsel$d_test$type, size = submodel_sizes[k], delta = delta,
+          data = varsel$d_test$type, size = submodel_sizes[k] - 1, delta = delta,
           statistic = stat, value = res$value, lq = res$lq, uq = res$uq,
           se = res$se, diff = diff$value, diff.se = diff$se
         )
