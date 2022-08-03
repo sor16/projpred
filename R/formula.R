@@ -606,6 +606,11 @@ select_possible_terms_size <- function(chosen, terms, size, must_include = NULL)
   if (size < 1) {
     stop("size must be at least 1")
   }
+  #If no variable chosen and there are terms that must be included, extract only variables from must_include
+  if(length(chosen)==0 & !is.null(must_include)){
+    full_valid_submodels <- list(union("1",must_include))
+    return(full_valid_submodels)
+  }
 
   valid_submodels <- lapply(terms, function(x) {
     ## if we are adding a linear term whose smooth is already
@@ -649,13 +654,10 @@ select_possible_terms_size <- function(chosen, terms, size, must_include = NULL)
       paste(x, add_chosen, remove_chosen)
     )))
   })))
+  #Collect submodels again into a list with character vectors
   full_valid_submodels <- lapply(full_valid_submodels,function(x){
     unlist(strsplit(x,split = ' \\+ '))
   })
-  #If no variable chosen and there are terms that must be included, extract only variables from must_include
-  if(length(chosen)==0 & !is.null(must_include)){
-    full_valid_submodels <- list(union("1",must_include))
-  }
   return(full_valid_submodels)
 }
 

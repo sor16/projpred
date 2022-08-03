@@ -73,8 +73,6 @@
 #'   formula.
 #'   @param must_include Only relevant for forward search. A custom character
 #'   vector of predictor terms that have to be included in each search path.
-#'   The intercept (`"1"`) is always included internally via `union()`, so
-#'   there's no difference between including it explicitly or omitting it.
 #' @param verbose A single logical value indicating whether to print out
 #'   additional information during the computations.
 #' @param seed Pseudorandom number generation (PRNG) seed by which the same

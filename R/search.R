@@ -36,7 +36,7 @@ search_forward <- function(p_ref, refmodel, nterms_max, verbose = TRUE, opt,
   if(!is.null(must_include)){
     fixed_terms <- must_include
   }else if(any(grepl('\\+',search_terms))){
-    fixed_terms <- Reduce('intersect',lapply(possible_mods,function(x) unlist(strsplit(x,split='\\+'))))
+    fixed_terms <- Reduce('intersect',lapply(search_terms,function(x) unlist(strsplit(x,split='\\+'))))
   }else{
     fixed_terms <- NULL
   }
